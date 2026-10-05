@@ -39,46 +39,127 @@ class MLPSegmentation(nn.Module):
 class TinyUNet(nn.Module):
     """
     Tiny U-Net for segmentation of 28x28 images.
-    Optimized for small images and simple segmentation tasks.
+    Uses skip connections between encoder and decoder.
     """
-    
+
     def __init__(self, in_channels=3, out_channels=1, base_channels=16):
         super(TinyUNet, self).__init__()
-        
-        # Encoder (contracting path)
-        # TODO: Add your own encoder architecture here
-        self.encoder = nn.Sequential(
+
+        # Encoder block 1: 28x28
+        self.enc1 = nn.Sequential(
             nn.Conv2d(in_channels, base_channels, kernel_size=3, padding=1),
             nn.ReLU(),
-            nn.MaxPool2d(2),  # 28 -> 14
-            nn.Conv2d(base_channels, base_channels * 2, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2),  # 14 -> 7
+            nn.Conv2d(base_channels, base_channels, kernel_size=3, padding=1),
+            nn.ReLU()
         )
 
-        # Bottleneck
+        self.pool1 = nn.MaxPool2d(2)  # 28 -> 14
+
+        # Encoder block 2: 14x14
+        self.enc2 = nn.Sequential(
+            nn.Conv2d(base_channels, base_channels * 2, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(base_channels * 2, base_channels * 2, kernel_size=3, padding=1),
+            nn.ReLU()
+        )
+
+        self.pool2 = nn.MaxPool2d(2)  # 14 -> 7
+
+        # Bottleneck: 7x7
         self.bottleneck = nn.Sequential(
             nn.Conv2d(base_channels * 2, base_channels * 4, kernel_size=3, padding=1),
             nn.ReLU(),
+            nn.Conv2d(base_channels * 4, base_channels * 4, kernel_size=3, padding=1),
+            nn.ReLU()
         )
 
-        # Decoder (expanding path)
-        self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(base_channels * 4, base_channels * 2, kernel_size=2, stride=2),  # 7 -> 14
+        # Decoder stage 1: 7 -> 14
+        self.up1 = nn.ConvTranspose2d(
+            base_channels * 4,
+            base_channels * 2,
+            kernel_size=2,
+            stride=2
+        )
+
+        self.dec1 = nn.Sequential(
+            nn.Conv2d(
+                base_channels * 4,   # concatenation: 32 + 32
+                base_channels * 2,
+                kernel_size=3,
+                padding=1
+            ),
             nn.ReLU(),
-            nn.ConvTranspose2d(base_channels * 2, base_channels, kernel_size=2, stride=2),  # 14 -> 28
+            nn.Conv2d(
+                base_channels * 2,
+                base_channels * 2,
+                kernel_size=3,
+                padding=1
+            ),
+            nn.ReLU()
+        )
+
+        # Decoder stage 2: 14 -> 28
+        self.up2 = nn.ConvTranspose2d(
+            base_channels * 2,
+            base_channels,
+            kernel_size=2,
+            stride=2
+        )
+
+        self.dec2 = nn.Sequential(
+            nn.Conv2d(
+                base_channels * 2,   # concatenation: 16 + 16
+                base_channels,
+                kernel_size=3,
+                padding=1
+            ),
             nn.ReLU(),
+            nn.Conv2d(
+                base_channels,
+                base_channels,
+                kernel_size=3,
+                padding=1
+            ),
+            nn.ReLU()
+        )
+
+        # Final pixel-wise prediction
+        self.output = nn.Sequential(
             nn.Conv2d(base_channels, out_channels, kernel_size=1),
             nn.Sigmoid()
         )
-    
-    def forward(self, x):
-        x = self.encoder(x)
-        x = self.bottleneck(x)
-        x = self.decoder(x)
-        return x
-        
 
+    def forward(self, x):
+        # Encoder
+        e1 = self.enc1(x)          # [B, 16, 28, 28]
+        p1 = self.pool1(e1)        # [B, 16, 14, 14]
+
+        e2 = self.enc2(p1)         # [B, 32, 14, 14]
+        p2 = self.pool2(e2)        # [B, 32, 7, 7]
+
+        # Bottleneck
+        b = self.bottleneck(p2)    # [B, 64, 7, 7]
+
+        # Decoder stage 1
+        d1 = self.up1(b)           # [B, 32, 14, 14]
+
+        # Skip connection from encoder block 2
+        d1 = torch.cat([d1, e2], dim=1)   # [B, 64, 14, 14]
+        d1 = self.dec1(d1)                 # [B, 32, 14, 14]
+
+        # Decoder stage 2
+        d2 = self.up2(d1)          # [B, 16, 28, 28]
+
+        # Skip connection from encoder block 1
+        d2 = torch.cat([d2, e1], dim=1)   # [B, 32, 28, 28]
+        d2 = self.dec2(d2)                 # [B, 16, 28, 28]
+
+        # Final segmentation mask
+        return self.output(d2)     # [B, 1, 28, 28]
+
+
+
+    
 def get_segmentation_model(model_name, in_channels=3, out_channels=1):
     """Get segmentation model by name."""
     if model_name == 'mlp':
