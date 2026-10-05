@@ -44,13 +44,17 @@ class CNNModel(nn.Module):
             nn.Conv2d(3, 64, kernel_size=3, padding=1),
             nn.BatchNorm2d(64),
             nn.ReLU(),
+            nn.MaxPool2d(2),              # 28 -> 14
 
-            nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(64, 128, kernel_size=3, padding=1),
+            nn.BatchNorm2d(128),
             nn.ReLU(),
+            nn.MaxPool2d(2),              # 14 -> 7
 
-            nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(128, 256, kernel_size=3, padding=1),
+            nn.BatchNorm2d(256),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.MaxPool2d(2),              # 7 -> 3
 
             nn.Flatten(),
             nn.Linear(256 * 3 * 3, 256),

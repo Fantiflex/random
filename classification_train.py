@@ -27,7 +27,7 @@ def train_model(model, train_loader, val_loader, epochs=20, learning_rate=0.001,
     model = model.to(device)
     
     # Setup optimizer and loss function
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+    optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     criterion = nn.CrossEntropyLoss() 
     
     # Track training history

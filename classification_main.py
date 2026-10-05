@@ -102,7 +102,7 @@ def main(args):
     # Load data
     print("Loading PathMNIST dataset...")
     batch_size = 32
-    max_steps_per_epoch = 100
+    max_steps_per_epoch = 1500
 
     train_loader, val_loader, num_classes = create_pathmnist_dataloaders(
         batch_size=batch_size,
@@ -110,18 +110,11 @@ def main(args):
         data_root='./data'
     )
 
-    save_experiment_to_csv(
-        model=model,
-        model_name=args.model_name,
-        history=history,
-        args=args,
-        batch_size=batch_size,
-        max_steps_per_epoch=max_steps_per_epoch
-    )
+    
     
     print(f"\nCreating {args.model_name} model...")
     model = get_model(args.model_name, num_classes=num_classes)
-    
+
     print(f"Model parameters: {count_parameters(model):,}")
     
     print(f"\nTraining {args.model_name} model...")
@@ -142,6 +135,15 @@ def main(args):
         if history['val_acc']:
             best_val_acc = max(history['val_acc'])
             print(f"Best validation accuracy: {best_val_acc:.4f}")
+
+        save_experiment_to_csv(
+            model=model,
+            model_name=args.model_name,
+            history=history,
+            args=args,
+            batch_size=batch_size,
+            max_steps_per_epoch=max_steps_per_epoch
+        )
         
     except NotImplementedError as e:
         print(f"❌ Training failed: {e}")
