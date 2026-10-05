@@ -21,9 +21,20 @@ class MLPSegmentation(nn.Module):
         # Output should be 1x28x28 = 784 features
         
         # TODO: Add your own MLP architecture here
+        self.network = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(in_channels * 28 * 28, 1024),
+            nn.ReLU(),
+            nn.Linear(1024, 512),
+            nn.ReLU(),
+            nn.Linear(512, out_channels * 28 * 28)
+        )
+        self.out_channels = out_channels
     
     def forward(self, x):
-        raise NotImplementedError("MLPSegmentation is not implemented")
+        x = self.network(x)
+        x = x.view(x.size(0), self.out_channels, 28, 28)
+        return x
 
 class TinyUNet(nn.Module):
     """
@@ -36,9 +47,35 @@ class TinyUNet(nn.Module):
         
         # Encoder (contracting path)
         # TODO: Add your own encoder architecture here
+        self.encoder = nn.Sequential(
+            nn.Conv2d(in_channels, base_channels, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2),  # 28 -> 14
+            nn.Conv2d(base_channels, base_channels * 2, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2),  # 14 -> 7
+        )
+
+        # Bottleneck
+        self.bottleneck = nn.Sequential(
+            nn.Conv2d(base_channels * 2, base_channels * 4, kernel_size=3, padding=1),
+            nn.ReLU(),
+        )
+
+        # Decoder (expanding path)
+        self.decoder = nn.Sequential(
+            nn.ConvTranspose2d(base_channels * 4, base_channels * 2, kernel_size=2, stride=2),  # 7 -> 14
+            nn.ReLU(),
+            nn.ConvTranspose2d(base_channels * 2, base_channels, kernel_size=2, stride=2),  # 14 -> 28
+            nn.ReLU(),
+            nn.Conv2d(base_channels, out_channels, kernel_size=1)
+        )
     
     def forward(self, x):
-        raise NotImplementedError("TinyUNet is not implemented")
+        x = self.encoder(x)
+        x = self.bottleneck(x)
+        x = self.decoder(x)
+        return x
         
 
 def get_segmentation_model(model_name, in_channels=3, out_channels=1):
@@ -104,7 +141,7 @@ class DiceLoss(nn.Module):
     
     def forward(self, pred, target):
         #TODO: Compute the DICE loss
-        loss = 0 # TODO: Compute the DICE loss
+        loss = 1 - (2 * (pred * target).sum(dim=(1, 2, 3)) + self.smooth) / (pred.sum(dim=(1, 2, 3)) + target.sum(dim=(1, 2, 3)) + self.smooth)  # TODO: Compute the DICE loss
         return loss 
 
 class CombinedLoss(nn.Module):
@@ -114,8 +151,8 @@ class CombinedLoss(nn.Module):
     
     def __init__(self, bce_weight=0.5, dice_weight=0.5):
         super(CombinedLoss, self).__init__()
-        self.bce_loss = None # TODO: Initialize the BCE loss
-        self.dice_loss = None # TODO: Initialize the DICE loss
+        self.bce_loss = nn.BCELoss()  # Initialize the BCE loss
+        self.dice_loss = DiceLoss()  # Initialize the DICE loss
     
     def forward(self, pred, target):
         bce = self.bce_loss(pred, target)
