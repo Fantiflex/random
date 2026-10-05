@@ -1,0 +1,17 @@
+# Dataset
+data/
+
+# Experiment outputs
+results/
+
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# macOS
+.DS_Store
