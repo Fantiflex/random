@@ -68,7 +68,8 @@ class TinyUNet(nn.Module):
             nn.ReLU(),
             nn.ConvTranspose2d(base_channels * 2, base_channels, kernel_size=2, stride=2),  # 14 -> 28
             nn.ReLU(),
-            nn.Conv2d(base_channels, out_channels, kernel_size=1)
+            nn.Conv2d(base_channels, out_channels, kernel_size=1),
+            nn.Sigmoid()
         )
     
     def forward(self, x):
@@ -153,6 +154,8 @@ class CombinedLoss(nn.Module):
         super(CombinedLoss, self).__init__()
         self.bce_loss = nn.BCELoss()  # Initialize the BCE loss
         self.dice_loss = DiceLoss()  # Initialize the DICE loss
+        self.bce_weight = bce_weight
+        self.dice_weight = dice_weight
     
     def forward(self, pred, target):
         bce = self.bce_loss(pred, target)
