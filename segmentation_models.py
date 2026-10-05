@@ -143,7 +143,7 @@ class DiceLoss(nn.Module):
     def forward(self, pred, target):
         #TODO: Compute the DICE loss
         loss = 1 - (2 * (pred * target).sum(dim=(1, 2, 3)) + self.smooth) / (pred.sum(dim=(1, 2, 3)) + target.sum(dim=(1, 2, 3)) + self.smooth)  # TODO: Compute the DICE loss
-        return loss 
+        return loss.mean()
 
 class CombinedLoss(nn.Module):
     """
